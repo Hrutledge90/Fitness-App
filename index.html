@@ -446,38 +446,45 @@ canvas{width:100%!important;}
       <div class="favs-scroll" id="favsRow"></div>
       <div class="divider"></div>
  
-      <!-- AI food lookup -->
+      <!-- Lookup -->
       <div class="field">
-        <label>Describe your meal (AI will estimate macros)</label>
+        <label>Search or describe food</label>
         <div style="display:flex;gap:6px;">
-          <input type="text" id="foodInput" placeholder="e.g. 2 eggs avocado on toast" style="flex:1;"/>
-          <button class="btn btn-blue btn-sm" onclick="aiLookupFood()" id="aiLookupBtn">Estimate</button>
+          <input type="text" id="foodInput" placeholder="e.g. porridge with yogurt, chicken rice..." style="flex:1;" oninput="liveSearch(this.value)"/>
+          <button class="btn btn-blue btn-sm" onclick="lookupFood()" id="lookupBtn">Look up</button>
         </div>
       </div>
  
-      <!-- AI result panel -->
-      <div class="ai-food-panel" id="aiFoodPanel">
-        <div class="ai-food-row">
-          <div style="font-size:13px;font-weight:600;" id="aiFoodName"></div>
-          <div style="font-size:11px;color:var(--text2);">AI estimate — tap to adjust</div>
-        </div>
-        <div class="ai-macro-chips">
-          <span class="macro-chip" style="background:#0a2a1a;color:var(--green2);">🔥 <span id="aiCal">0</span> kcal</span>
-          <span class="macro-chip" style="background:#0a2a2a;color:var(--cyan2);">P: <span id="aiProt">0</span>g</span>
-          <span class="macro-chip" style="background:#150a2a;color:var(--purple2);">C: <span id="aiCarbs">0</span>g</span>
-          <span class="macro-chip" style="background:#2a1a0a;color:var(--amber2);">F: <span id="aiFat">0</span>g</span>
-        </div>
-        <div class="field-row" style="margin-top:10px;">
-          <div class="field"><label>Adjust cals</label><input type="number" id="adjCal" placeholder="kcal"/></div>
-          <div class="field"><label>Adjust protein</label><input type="number" id="adjProt" placeholder="g"/></div>
-        </div>
+      <!-- Live search dropdown -->
+      <div id="searchDropdown" style="display:none;background:var(--bg4);border:1px solid var(--border2);border-radius:8px;margin-top:-8px;margin-bottom:10px;overflow:hidden;"></div>
+ 
+      <!-- Macro inputs — always visible & editable -->
+      <div class="field">
+        <label>Description</label>
+        <input type="text" id="foodDesc" placeholder="What did you eat? (e.g. Porridge with Greek yogurt)"/>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Calories (kcal)</label><input type="number" id="foodCal" placeholder="e.g. 380"/></div>
+        <div class="field"><label>Protein (g)</label><input type="number" id="foodProt2" placeholder="e.g. 22"/></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Carbs (g)</label><input type="number" id="foodCarb2" placeholder="e.g. 52"/></div>
+        <div class="field"><label>Fat (g)</label><input type="number" id="foodFat2" placeholder="e.g. 8"/></div>
+      </div>
+ 
+      <!-- Lookup result hint -->
+      <div id="lookupHint" style="display:none;background:var(--bg4);border:1px solid var(--blue-dim);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;color:var(--text2);">
+        <span id="lookupHintText"></span> — <span style="color:var(--text3);font-size:11px;">edit above if needed</span>
       </div>
  
       <div class="field-row">
         <div class="field"><label>Meal</label><select id="mealType"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select></div>
         <div class="field"><label>Date</label><input type="date" id="foodDate"/></div>
       </div>
-      <button class="log-fab" onclick="logFood()">LOG MEAL ✓</button>
+      <div style="display:flex;gap:8px;">
+        <button class="log-fab" style="margin-bottom:0;flex:1;" onclick="logFood()">LOG MEAL ✓</button>
+        <button class="btn btn-ghost" onclick="saveAsFav()" style="padding:13px 14px;margin-bottom:8px;">★</button>
+      </div>
     </div>
   </div>
  
@@ -600,7 +607,6 @@ let state = {
   currentGym: null,
   streak: 0,
   selectedMood: null,
-  aiFoodData: null,
 };
  
 // Seed starting body data if none
@@ -948,101 +954,178 @@ function renderTrainStats() {
 }
  
 // ── FOOD ──────────────────────────────────────────
-const DEFAULT_FAVS=[
-  {name:'Chicken breast 200g',cal:220,prot:46,carbs:0,fat:5},
-  {name:'Oats 80g',cal:296,prot:10,carbs:52,fat:7},
-  {name:'Greek yogurt 200g',cal:130,prot:20,carbs:8,fat:2},
-  {name:'Eggs x2',cal:140,prot:12,carbs:0,fat:10},
-  {name:'Salmon 150g',cal:280,prot:36,carbs:0,fat:15},
-  {name:'Rice 150g cooked',cal:195,prot:4,carbs:44,fat:0},
-  {name:'Protein shake',cal:130,prot:25,carbs:5,fat:2},
-  {name:'Avocado half',cal:120,prot:1,carbs:3,fat:11},
-  {name:'Banana',cal:90,prot:1,carbs:23,fat:0},
-  {name:'Mixed nuts 30g',cal:180,prot:5,carbs:5,fat:16},
-  {name:'Cottage cheese 200g',cal:140,prot:24,carbs:6,fat:2},
-  {name:'Tuna tin',cal:110,prot:25,carbs:0,fat:1},
-  {name:'Avocado on toast (2 eggs)',cal:420,prot:18,carbs:30,fat:22},
+// ── FOOD DATABASE (built-in, no API needed) ───────────────
+const FOOD_DB = [
+  // Breakfast staples
+  {name:'Porridge oats 80g',         aliases:['porridge','oatmeal','oats'],          cal:296,prot:10,carbs:52,fat:7},
+  {name:'Porridge with milk 300ml',  aliases:['porridge milk'],                       cal:380,prot:14,carbs:58,fat:9},
+  {name:'Porridge with yogurt',      aliases:['porridge yogurt','porridge greek'],    cal:340,prot:18,carbs:52,fat:8},
+  {name:'Greek yogurt 200g',         aliases:['greek yogurt','yogurt'],               cal:130,prot:20,carbs:8, fat:2},
+  {name:'Greek yogurt 150g',         aliases:['small yogurt'],                        cal:100,prot:15,carbs:6, fat:1},
+  {name:'Eggs x2 scrambled',        aliases:['scrambled eggs','2 eggs'],              cal:180,prot:14,carbs:1, fat:13},
+  {name:'Eggs x2 boiled',           aliases:['boiled eggs','2 boiled'],               cal:140,prot:12,carbs:0, fat:10},
+  {name:'Eggs x3',                  aliases:['three eggs','3 eggs'],                  cal:210,prot:18,carbs:0, fat:15},
+  {name:'Avocado on toast (2 eggs)',aliases:['avo eggs toast','eggs avocado toast'],  cal:480,prot:20,carbs:32,fat:28},
+  {name:'Avocado on toast',         aliases:['avocado toast','avo toast'],            cal:300,prot:7, carbs:30,fat:18},
+  {name:'Avocado half',             aliases:['avocado','avo'],                        cal:120,prot:1, carbs:3, fat:11},
+  {name:'Wholegrain toast 2 slices',aliases:['toast','bread'],                        cal:160,prot:6, carbs:30,fat:2},
+  {name:'Banana',                   aliases:['banana'],                               cal:90, prot:1, carbs:23,fat:0},
+  {name:'Blueberries 100g',         aliases:['blueberries','berries'],                cal:57, prot:1, carbs:14,fat:0},
+  // Protein
+  {name:'Chicken breast 200g',      aliases:['chicken','chicken breast'],             cal:220,prot:46,carbs:0, fat:5},
+  {name:'Chicken breast 150g',      aliases:['small chicken'],                        cal:165,prot:35,carbs:0, fat:4},
+  {name:'Salmon fillet 150g',       aliases:['salmon','salmon fillet'],               cal:280,prot:36,carbs:0, fat:15},
+  {name:'Tuna tin (145g drained)',  aliases:['tuna','tuna tin','tinned tuna'],        cal:110,prot:25,carbs:0, fat:1},
+  {name:'Protein shake',            aliases:['shake','protein shake','whey'],         cal:130,prot:25,carbs:5, fat:2},
+  {name:'Cottage cheese 200g',      aliases:['cottage cheese'],                       cal:140,prot:24,carbs:6, fat:2},
+  {name:'Beef mince 150g lean',     aliases:['mince','beef mince','ground beef'],     cal:220,prot:30,carbs:0, fat:11},
+  {name:'Turkey breast 150g',       aliases:['turkey'],                               cal:160,prot:35,carbs:0, fat:2},
+  // Carbs
+  {name:'Rice 150g cooked',         aliases:['rice','white rice','cooked rice'],      cal:195,prot:4, carbs:44,fat:0},
+  {name:'Brown rice 150g cooked',   aliases:['brown rice'],                           cal:185,prot:4, carbs:40,fat:1},
+  {name:'Sweet potato 200g',        aliases:['sweet potato','sweet pot'],             cal:172,prot:3, carbs:40,fat:0},
+  {name:'Pasta 100g dry',           aliases:['pasta','spaghetti'],                    cal:355,prot:12,carbs:72,fat:2},
+  {name:'Pasta 200g cooked',        aliases:['cooked pasta','pasta cooked'],          cal:260,prot:9, carbs:52,fat:2},
+  {name:'Oats 80g',                 aliases:['oats','oatmeal'],                       cal:296,prot:10,carbs:52,fat:7},
+  // Snacks & extras
+  {name:'Mixed nuts 30g',           aliases:['nuts','mixed nuts'],                    cal:180,prot:5, carbs:5, fat:16},
+  {name:'Almonds 30g',              aliases:['almonds'],                              cal:175,prot:6, carbs:5, fat:15},
+  {name:'Peanut butter 2 tbsp',     aliases:['peanut butter','pb'],                   cal:190,prot:8, carbs:6, fat:16},
+  {name:'Olive oil 1 tbsp',         aliases:['olive oil','oil'],                      cal:119,prot:0, carbs:0, fat:14},
+  {name:'Whole milk 300ml',         aliases:['milk','full fat milk'],                 cal:186,prot:9, carbs:14,fat:11},
+  {name:'Skimmed milk 300ml',       aliases:['skimmed milk','semi milk'],             cal:102,prot:10,carbs:14,fat:1},
+  {name:'Cheddar cheese 30g',       aliases:['cheese','cheddar'],                     cal:120,prot:7, carbs:0, fat:10},
+  {name:'Apple',                    aliases:['apple'],                                cal:80, prot:0, carbs:21,fat:0},
+  {name:'Orange',                   aliases:['orange'],                               cal:62, prot:1, carbs:15,fat:0},
+  // Meals
+  {name:'Chicken & rice meal',      aliases:['chicken rice','chicken and rice'],      cal:415,prot:50,carbs:44,fat:5},
+  {name:'Salmon & veg',             aliases:['salmon veg','salmon and veg'],          cal:320,prot:38,carbs:10,fat:16},
+  {name:'Steak 200g sirloin',       aliases:['steak','sirloin'],                      cal:340,prot:42,carbs:0, fat:18},
+  {name:'Eggs & bacon (2+2)',       aliases:['eggs bacon','fry up'],                  cal:380,prot:28,carbs:0, fat:30},
 ];
+ 
+const DEFAULT_FAVS=[
+  {name:'Porridge with yogurt',     cal:340,prot:18,carbs:52,fat:8},
+  {name:'Chicken breast 200g',      cal:220,prot:46,carbs:0, fat:5},
+  {name:'Greek yogurt 200g',        cal:130,prot:20,carbs:8, fat:2},
+  {name:'Eggs x2 scrambled',        cal:180,prot:14,carbs:1, fat:13},
+  {name:'Salmon fillet 150g',       cal:280,prot:36,carbs:0, fat:15},
+  {name:'Rice 150g cooked',         cal:195,prot:4, carbs:44,fat:0},
+  {name:'Protein shake',            cal:130,prot:25,carbs:5, fat:2},
+  {name:'Avocado on toast (2 eggs)',cal:480,prot:20,carbs:32,fat:28},
+  {name:'Tuna tin (145g drained)',  cal:110,prot:25,carbs:0, fat:1},
+  {name:'Mixed nuts 30g',           cal:180,prot:5, carbs:5, fat:16},
+  {name:'Cottage cheese 200g',      cal:140,prot:24,carbs:6, fat:2},
+  {name:'Banana',                   cal:90, prot:1, carbs:23,fat:0},
+];
+ 
+function foodSearch(query) {
+  if (!query || query.length < 2) return [];
+  const q = query.toLowerCase();
+  const scored = FOOD_DB.map(f => {
+    const nameMatch = f.name.toLowerCase().includes(q);
+    const aliasMatch = f.aliases.some(a => a.includes(q) || q.includes(a));
+    const wordMatch = q.split(' ').every(w => f.name.toLowerCase().includes(w) || f.aliases.some(a=>a.includes(w)));
+    const score = nameMatch ? 3 : aliasMatch ? 2 : wordMatch ? 1 : 0;
+    return {...f, score};
+  }).filter(f => f.score > 0).sort((a,b) => b.score - a.score);
+  return scored.slice(0, 6);
+}
+ 
+function liveSearch(val) {
+  const dd = document.getElementById('searchDropdown');
+  const results = foodSearch(val);
+  if (!results.length || val.length < 2) { dd.style.display='none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = results.map((f,i) => `
+    <div onclick="selectSearchResult(${i},'${f.name.replace(/'/g,"\\'")}',${f.cal},${f.prot},${f.carbs},${f.fat})"
+      style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <span>${f.name}</span>
+      <span style="float:right;font-size:11px;color:var(--text2);">${f.cal} kcal · P:${f.prot}g</span>
+    </div>`).join('');
+}
+ 
+function selectSearchResult(i, name, cal, prot, carbs, fat) {
+  document.getElementById('foodDesc').value = name;
+  document.getElementById('foodCal').value  = cal;
+  document.getElementById('foodProt2').value = prot;
+  document.getElementById('foodCarb2').value = carbs;
+  document.getElementById('foodFat2').value  = fat;
+  document.getElementById('foodInput').value = name;
+  document.getElementById('searchDropdown').style.display = 'none';
+  document.getElementById('lookupHint').style.display = 'block';
+  document.getElementById('lookupHintText').textContent = `${name} — ${cal} kcal, P:${prot}g, C:${carbs}g, F:${fat}g`;
+}
+ 
+function lookupFood() {
+  const q = document.getElementById('foodInput').value.trim();
+  if (!q) { showToast('Type a food name first!'); return; }
+  const results = foodSearch(q);
+  if (results.length) {
+    selectSearchResult(0, results[0].name, results[0].cal, results[0].prot, results[0].carbs, results[0].fat);
+    showToast('✓ Found — adjust numbers if needed');
+  } else {
+    showToast('Not in database — enter numbers manually');
+    document.getElementById('foodDesc').value = q;
+    document.getElementById('foodInput').value = q;
+    document.getElementById('searchDropdown').style.display='none';
+  }
+}
+ 
 function initFavs(){if(!state.favFoods.length){state.favFoods=DEFAULT_FAVS;S.set('favs',state.favFoods);}}
 function renderFavs(){
   document.getElementById('favsRow').innerHTML=state.favFoods.map((f,i)=>
-    `<div class="fav-btn" onclick="quickAddFav(${i})" title="${f.cal} kcal">${f.name}</div>`).join('');
+    `<div class="fav-btn" onclick="quickAddFav(${i})" title="${f.cal} kcal · P:${f.prot}g">${f.name}</div>`).join('');
 }
 function quickAddFav(i){
   const f=state.favFoods[i];
   document.getElementById('foodInput').value=f.name;
-  state.aiFoodData={cal:f.cal,prot:f.prot,carbs:f.carbs,fat:f.fat};
-  showAIPanel(f.name,f.cal,f.prot,f.carbs,f.fat);
+  document.getElementById('foodDesc').value=f.name;
+  document.getElementById('foodCal').value=f.cal;
+  document.getElementById('foodProt2').value=f.prot;
+  document.getElementById('foodCarb2').value=f.carbs;
+  document.getElementById('foodFat2').value=f.fat;
+  document.getElementById('lookupHint').style.display='block';
+  document.getElementById('lookupHintText').textContent=`${f.name} — ${f.cal} kcal, P:${f.prot}g, C:${f.carbs}g, F:${f.fat}g`;
 }
  
-async function aiLookupFood() {
-  const desc=document.getElementById('foodInput').value.trim();
-  if (!desc){showToast('Type a food description first!');return;}
-  const btn=document.getElementById('aiLookupBtn');
-  btn.textContent='...'; btn.disabled=true;
-  try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,
-        messages:[{role:'user',content:`Estimate the nutritional content for: "${desc}". Return ONLY a JSON object with keys: cal (integer), prot (integer, protein grams), carbs (integer), fat (integer). No other text.`}]})});
-    const data=await res.json();
-    const text=data.content.map(c=>c.text||'').join('');
-    const m=JSON.parse(text.replace(/```json|```/g,'').trim());
-    state.aiFoodData=m;
-    showAIPanel(desc,m.cal,m.prot,m.carbs,m.fat);
-  } catch(e) {
-    showToast('Could not estimate — enter manually');
-  }
-  btn.textContent='Estimate'; btn.disabled=false;
-}
- 
-function showAIPanel(name,cal,prot,carbs,fat){
-  document.getElementById('aiFoodName').textContent=name;
-  document.getElementById('aiCal').textContent=cal;
-  document.getElementById('aiProt').textContent=prot;
-  document.getElementById('aiCarbs').textContent=carbs;
-  document.getElementById('aiFat').textContent=fat;
-  document.getElementById('adjCal').value=cal;
-  document.getElementById('adjProt').value=prot;
-  document.getElementById('aiFoodPanel').classList.add('show');
-}
- 
-// Set today's date as default
 function setFoodDateDefault(){
   const d=document.getElementById('foodDate');
   if(!d.value) d.value=new Date().toISOString().split('T')[0];
 }
  
 function logFood(){
-  const name=document.getElementById('foodInput').value.trim();
+  const name=document.getElementById('foodDesc').value.trim()||document.getElementById('foodInput').value.trim();
   if(!name){showToast('Enter a food description!');return;}
-  const ai=state.aiFoodData;
-  const adjCal=parseFloat(document.getElementById('adjCal').value);
-  const adjProt=parseFloat(document.getElementById('adjProt').value);
-  const cal=adjCal||ai?.cal||0, prot=adjProt||ai?.prot||0;
-  const carbs=ai?.carbs||0, fat=ai?.fat||0;
-  const meal=document.getElementById('mealType').value;
+  const cal  =parseFloat(document.getElementById('foodCal').value)  ||0;
+  const prot =parseFloat(document.getElementById('foodProt2').value) ||0;
+  const carbs=parseFloat(document.getElementById('foodCarb2').value) ||0;
+  const fat  =parseFloat(document.getElementById('foodFat2').value)  ||0;
+  const meal =document.getElementById('mealType').value;
   const dateVal=document.getElementById('foodDate').value||new Date().toISOString().split('T')[0];
-  const dateStr=new Date(dateVal).toDateString();
+  const dateStr=new Date(dateVal+'T12:00:00').toDateString();
   const tStr=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   state.food.push({name,cal,prot,carbs,fat,meal,time:tStr,date:dateStr,ts:Date.now()});
   S.set('food',state.food);
-  document.getElementById('foodInput').value='';
-  document.getElementById('adjCal').value='';
-  document.getElementById('adjProt').value='';
-  document.getElementById('aiFoodPanel').classList.remove('show');
-  state.aiFoodData=null;
+  ['foodInput','foodDesc','foodCal','foodProt2','foodCarb2','foodFat2'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('lookupHint').style.display='none';
+  document.getElementById('searchDropdown').style.display='none';
   renderFoodLog(); updateMacros(); renderDash();
-  showToast(`✅ ${meal} logged!`);
+  showToast(`\u2705 ${meal} logged!`);
 }
  
 function saveAsFav(){
-  const name=document.getElementById('foodInput').value.trim();
+  const name=document.getElementById('foodDesc').value.trim()||document.getElementById('foodInput').value.trim();
   if(!name){showToast('Enter food first!');return;}
   if(state.favFoods.find(f=>f.name===name)){showToast('Already a favourite!');return;}
-  const ai=state.aiFoodData||{};
-  state.favFoods.push({name,cal:ai.cal||0,prot:ai.prot||0,carbs:ai.carbs||0,fat:ai.fat||0});
-  S.set('favs',state.favFoods); renderFavs(); showToast('★ Saved!');
+  state.favFoods.push({name,
+    cal:  parseFloat(document.getElementById('foodCal').value)  ||0,
+    prot: parseFloat(document.getElementById('foodProt2').value) ||0,
+    carbs:parseFloat(document.getElementById('foodCarb2').value) ||0,
+    fat:  parseFloat(document.getElementById('foodFat2').value)  ||0,
+  });
+  S.set('favs',state.favFoods); renderFavs(); showToast('\u2605 Saved to favourites!');
 }
  
 function getTodayFood(){return state.food.filter(f=>f.date===new Date().toDateString());}
