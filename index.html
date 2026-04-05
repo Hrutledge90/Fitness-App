@@ -394,11 +394,25 @@ canvas{width:100%!important;}
   <div id="trainTab-gen" style="display:none;">
     <div class="gen-box">
       <div class="gen-title">💪 GYM GENERATOR</div>
-      <div class="gen-sub">Smart rotation — surfaces muscles you haven't hit recently</div>
+      <div class="gen-sub">Smart rotation · Progressive overload · Sets to failure</div>
       <button class="btn btn-blue btn-full" onclick="generateGym()">GENERATE TODAY'S SESSION</button>
       <div id="gymPlan" style="display:none;text-align:left;margin-top:12px;"></div>
       <div id="gymCoverage" style="display:none;"></div>
-      <button id="gymDownBtn" class="btn btn-ghost btn-full" style="display:none;margin-top:10px;" onclick="downloadGymPDF()">⬇ Download PDF Plan</button>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button id="gymSaveBtn" class="btn btn-blue btn-full" style="display:none;" onclick="saveGymWeights()">💾 Save Weights</button>
+        <button id="gymDownBtn" class="btn btn-ghost btn-full" style="display:none;" onclick="downloadGymPDF()">⬇ PDF</button>
+      </div>
+    </div>
+ 
+    <!-- Weight log modal -->
+    <div class="modal-overlay" id="weightLogModal">
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-title" id="wlExName" style="font-size:18px;"></div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;" id="wlLastTime"></div>
+        <div id="wlSets"></div>
+        <button class="btn btn-blue btn-full" style="margin-top:14px;font-size:15px;padding:13px;" onclick="saveSetLog()">SAVE & CLOSE</button>
+      </div>
     </div>
   </div>
  
@@ -443,48 +457,73 @@ canvas{width:100%!important;}
  
     <div class="card">
       <div class="card-title">Quick Add · Favourites</div>
+      <div style="margin-bottom:8px;">
+        <input type="text" id="favSearch" placeholder="Filter favourites..." oninput="filterFavs(this.value)"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+                 padding:7px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;"
+          onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"/>
+      </div>
       <div class="favs-scroll" id="favsRow"></div>
       <div class="divider"></div>
  
-      <!-- Lookup -->
+      <!-- Search bar -->
       <div class="field">
-        <label>Search or describe food</label>
+        <label>Search &amp; add items to meal</label>
         <div style="display:flex;gap:6px;">
-          <input type="text" id="foodInput" placeholder="e.g. porridge with yogurt, chicken rice..." style="flex:1;" oninput="liveSearch(this.value)"/>
-          <button class="btn btn-blue btn-sm" onclick="lookupFood()" id="lookupBtn">Look up</button>
+          <input type="text" id="foodInput" placeholder="e.g. porridge, banana, peanut butter..." style="flex:1;" oninput="liveSearch(this.value)" onkeydown="if(event.key==='Enter')addBasketItem()"/>
+          <button class="btn btn-blue btn-sm" onclick="addBasketItem()" id="lookupBtn">+ Add</button>
         </div>
       </div>
  
       <!-- Live search dropdown -->
-      <div id="searchDropdown" style="display:none;background:var(--bg4);border:1px solid var(--border2);border-radius:8px;margin-top:-8px;margin-bottom:10px;overflow:hidden;"></div>
+      <div id="searchDropdown" style="display:none;background:var(--bg4);border:1px solid var(--border2);border-radius:8px;margin-top:-8px;margin-bottom:10px;overflow:hidden;z-index:10;position:relative;"></div>
  
-      <!-- Macro inputs — always visible & editable -->
-      <div class="field">
-        <label>Description</label>
-        <input type="text" id="foodDesc" placeholder="What did you eat? (e.g. Porridge with Greek yogurt)"/>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Calories (kcal)</label><input type="number" id="foodCal" placeholder="e.g. 380"/></div>
-        <div class="field"><label>Protein (g)</label><input type="number" id="foodProt2" placeholder="e.g. 22"/></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Carbs (g)</label><input type="number" id="foodCarb2" placeholder="e.g. 52"/></div>
-        <div class="field"><label>Fat (g)</label><input type="number" id="foodFat2" placeholder="e.g. 8"/></div>
+      <!-- Meal basket -->
+      <div id="mealBasket" style="display:none;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">Meal items</div>
+        <div id="basketItems"></div>
+        <!-- Running total -->
+        <div id="basketTotal" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">
+          <span style="font-size:12px;color:var(--text2);">Total:</span>
+          <span id="btCal" style="font-size:12px;font-weight:600;color:var(--blue2);">0 kcal</span>
+          <span id="btProt" style="font-size:12px;color:var(--cyan2);">P: 0g</span>
+          <span id="btCarbs" style="font-size:12px;color:var(--purple2);">C: 0g</span>
+          <span id="btFat" style="font-size:12px;color:var(--amber2);">F: 0g</span>
+        </div>
       </div>
  
-      <!-- Lookup result hint -->
-      <div id="lookupHint" style="display:none;background:var(--bg4);border:1px solid var(--blue-dim);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;color:var(--text2);">
-        <span id="lookupHintText"></span> — <span style="color:var(--text3);font-size:11px;">edit above if needed</span>
+      <!-- Manual entry — always accessible, collapsible -->
+      <div style="margin-bottom:10px;">
+        <button onclick="toggleManualPanel()" id="manualToggleBtn"
+          style="width:100%;background:var(--bg3);border:1px dashed var(--border2);border-radius:8px;
+                 padding:8px 12px;color:var(--text2);font-size:12px;cursor:pointer;text-align:left;
+                 font-family:'DM Sans',sans-serif;display:flex;justify-content:space-between;align-items:center;">
+          <span>✏ Enter food manually (not in database)</span>
+          <span id="manualToggleIcon" style="font-size:16px;transition:.2s;">＋</span>
+        </button>
+        <div id="customItemPanel" style="display:none;background:var(--bg3);border:1px solid var(--border2);
+             border-top:none;border-radius:0 0 8px 8px;padding:12px;margin-top:-2px;">
+          <div class="field" style="margin-bottom:8px;">
+            <label>Food name</label>
+            <input type="text" id="customName" placeholder="e.g. Homemade granola"/>
+          </div>
+          <div class="field-row" style="margin-bottom:8px;">
+            <div class="field"><label>Calories (kcal)</label><input type="number" id="customCal" placeholder="e.g. 320"/></div>
+            <div class="field"><label>Protein (g)</label><input type="number" id="customProt" placeholder="e.g. 12"/></div>
+          </div>
+          <div class="field-row" style="margin-bottom:10px;">
+            <div class="field"><label>Carbs (g)</label><input type="number" id="customCarbs" placeholder="e.g. 45"/></div>
+            <div class="field"><label>Fat (g)</label><input type="number" id="customFat" placeholder="e.g. 8"/></div>
+          </div>
+          <button class="btn btn-blue btn-full" onclick="addCustomItem()">＋ Add to Meal</button>
+        </div>
       </div>
  
       <div class="field-row">
         <div class="field"><label>Meal</label><select id="mealType"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select></div>
         <div class="field"><label>Date</label><input type="date" id="foodDate"/></div>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button class="log-fab" style="margin-bottom:0;flex:1;" onclick="logFood()">LOG MEAL ✓</button>
-        <button class="btn btn-ghost" onclick="saveAsFav()" style="padding:13px 14px;margin-bottom:8px;">★</button>
-      </div>
+      <button class="log-fab" onclick="logFood()">LOG MEAL ✓</button>
     </div>
   </div>
  
@@ -618,40 +657,293 @@ if (!state.body.length) {
 // ── EXERCISES ─────────────────────────────────────
 const MUSCLES = ['Chest','Back','Legs','Shoulders','Core'];
 const mColor = { Chest:'#3b82f6', Back:'#06b6d4', Legs:'#10b981', Shoulders:'#8b5cf6', Core:'#f59e0b' };
+ 
+// SVG stick-figure illustrations: two poses [start, end] per exercise
+const EX_SVG = {
+  'Barbell Bench Press': [
+    `<svg viewBox="0 0 80 70" width="80" height="70"><rect x="10" y="40" width="60" height="5" rx="2" fill="#3b82f6" opacity=".3"/>
+     <line x1="10" y1="42" x2="5" y2="42" stroke="#60a5fa" stroke-width="2.5"/><line x1="70" y1="42" x2="75" y2="42" stroke="#60a5fa" stroke-width="2.5"/>
+     <circle cx="40" cy="18" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="24" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="28" x2="28" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="28" x2="52" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="34" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="46" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">START</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70"><rect x="15" y="22" width="50" height="5" rx="2" fill="#3b82f6" opacity=".6"/>
+     <line x1="15" y1="24" x2="10" y2="24" stroke="#60a5fa" stroke-width="2.5"/><line x1="65" y1="24" x2="70" y2="24" stroke="#60a5fa" stroke-width="2.5"/>
+     <circle cx="40" cy="18" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="24" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="26" x2="20" y2="24" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="26" x2="60" y2="24" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="34" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="46" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">PRESS</text></svg>`],
+  'Barbell Bent-Over Row': [
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="18" x2="40" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="28" y2="35" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="52" y2="35" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="35" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="45" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <rect x="16" y="46" width="48" height="4" rx="2" fill="#06b6d4" opacity=".4"/>
+     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">START</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="18" x2="40" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="22" y2="26" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="58" y2="26" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="35" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="45" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <rect x="16" y="28" width="48" height="4" rx="2" fill="#06b6d4" opacity=".8"/>
+     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">ROW UP</text></svg>`],
+  'Barbell Back Squat': [
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <rect x="18" y="18" width="44" height="4" rx="2" fill="#10b981" opacity=".5"/>
+     <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="18" x2="40" y2="35" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="35" x2="28" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="35" x2="52" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="28" y1="50" x2="26" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="52" y1="50" x2="54" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">STAND</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <rect x="18" y="26" width="44" height="4" rx="2" fill="#10b981" opacity=".5"/>
+     <circle cx="40" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="26" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="24" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="56" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="24" y1="46" x2="22" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="56" y1="46" x2="58" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">SQUAT</text></svg>`],
+  'Deadlift': [
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <circle cx="40" cy="22" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="28" x2="40" y2="42" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="32" x2="26" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="32" x2="54" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="42" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="42" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <rect x="18" y="52" width="44" height="5" rx="2" fill="#06b6d4" opacity=".5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">HINGE</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <circle cx="40" cy="10" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="16" x2="40" y2="34" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="26" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="54" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="34" x2="34" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="34" x2="46" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
+     <rect x="18" y="42" width="44" height="5" rx="2" fill="#06b6d4" opacity=".8"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">LOCK OUT</text></svg>`],
+  'Barbell Overhead Press': [
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <circle cx="40" cy="10" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="16" x2="40" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="20" x2="22" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="20" x2="58" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
+     <rect x="16" y="28" width="48" height="4" rx="2" fill="#8b5cf6" opacity=".6"/>
+     <line x1="40" y1="36" x2="34" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="36" x2="46" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">START</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <circle cx="40" cy="10" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="16" x2="40" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="20" x2="20" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="20" x2="60" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <rect x="14" y="6" width="52" height="4" rx="2" fill="#8b5cf6" opacity=".8"/>
+     <line x1="40" y1="36" x2="34" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="36" x2="46" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">PRESSED</text></svg>`],
+  'Cable Lat Pulldown': [
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <line x1="40" y1="2" x2="20" y2="8" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
+     <line x1="40" y1="2" x2="60" y2="8" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
+     <circle cx="40" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="26" x2="40" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="20" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="60" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="40" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="40" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">ARMS UP</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <line x1="40" y1="2" x2="20" y2="30" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
+     <line x1="40" y1="2" x2="60" y2="30" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
+     <circle cx="40" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="26" x2="40" y2="42" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="22" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="30" x2="58" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="42" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="42" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">PULL DOWN</text></svg>`],
+  'Bulgarian Split Squat': [
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <rect x="50" y="44" width="20" height="5" rx="2" fill="#3d5278"/>
+     <circle cx="32" cy="14" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="32" y1="20" x2="32" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="32" y1="28" x2="22" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="32" y1="28" x2="42" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="22" y1="38" x2="20" y2="55" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="42" y1="36" x2="55" y2="44" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">STAND</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <rect x="50" y="44" width="20" height="5" rx="2" fill="#3d5278"/>
+     <circle cx="28" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="28" y1="26" x2="28" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="28" y1="32" x2="14" y2="44" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="28" y1="32" x2="42" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="14" y1="44" x2="13" y2="58" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="42" y1="40" x2="55" y2="44" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">DIP DOWN</text></svg>`],
+  'Hanging Leg Raise': [
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <line x1="30" y1="2" x2="50" y2="2" stroke="#3d5278" stroke-width="3"/>
+     <line x1="36" y1="2" x2="34" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="44" y1="2" x2="46" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <circle cx="40" cy="16" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">HANG</text></svg>`,
+    `<svg viewBox="0 0 80 70" width="80" height="70">
+     <line x1="30" y1="2" x2="50" y2="2" stroke="#3d5278" stroke-width="3"/>
+     <line x1="36" y1="2" x2="34" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="44" y1="2" x2="46" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
+     <circle cx="40" cy="16" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="22" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="24" y2="32" stroke="#e8edf8" stroke-width="1.5"/>
+     <line x1="40" y1="38" x2="56" y2="32" stroke="#e8edf8" stroke-width="1.5"/>
+     <text x="40" y="50" text-anchor="middle" fill="#3d5278" font-size="7">RAISE</text></svg>`],
+};
+ 
+// Fallback SVG for exercises without custom art
+function defaultSVG(muscle, pose) {
+  const c = mColor[muscle] || '#3b82f6';
+  const label = pose === 0 ? 'START' : 'END';
+  const armY = pose === 0 ? 34 : 22;
+  return `<svg viewBox="0 0 80 70" width="80" height="70">
+    <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
+    <line x1="40" y1="18" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
+    <line x1="40" y1="24" x2="26" y2="${armY}" stroke="#e8edf8" stroke-width="1.5"/>
+    <line x1="40" y1="24" x2="54" y2="${armY}" stroke="#e8edf8" stroke-width="1.5"/>
+    <line x1="40" y1="38" x2="33" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+    <line x1="40" y1="38" x2="47" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
+    <circle cx="26" cy="${armY}" r="3" fill="${c}" opacity=".7"/>
+    <circle cx="54" cy="${armY}" r="3" fill="${c}" opacity=".7"/>
+    <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">${label}</text>
+  </svg>`;
+}
+ 
+function getExSVG(name, pose) {
+  const svgs = EX_SVG[name];
+  if (svgs) return svgs[pose] || svgs[0];
+  const ex = EXERCISES.find(e=>e.name===name);
+  return defaultSVG(ex ? ex.muscle : 'Chest', pose);
+}
+ 
 const EXERCISES = [
-  { name:'Barbell Bench Press',       muscle:'Chest',     cue:'3-sec descent, explosive press. Shoulder blades pinched.' },
-  { name:'Incline Barbell Press',     muscle:'Chest',     cue:'30-45 degree angle. Upper chest focus. Control the eccentric.' },
-  { name:'Dumbbell Chest Press',      muscle:'Chest',     cue:'Greater ROM than barbell. Stretch at bottom, squeeze top.' },
-  { name:'Weighted Dips',             muscle:'Chest',     cue:'Lean forward — chest dip not tricep. Control descent.' },
-  { name:'Cable Fly (Low to High)',   muscle:'Chest',     cue:'Constant tension throughout. Slow controlled return.' },
-  { name:'Incline Dumbbell Press',    muscle:'Chest',     cue:'Elbows at 45 degrees. Drive up and slightly inward.' },
-  { name:'Barbell Bent-Over Row',     muscle:'Back',      cue:'Chest up, 45-degree hinge. Pull to lower ribs. Squeeze blades.' },
-  { name:'Deadlift',                  muscle:'Back',      cue:'Hip hinge king. Bar against shins. Push the floor away.' },
-  { name:'Single-Arm Dumbbell Row',   muscle:'Back',      cue:'Full stretch at bottom. Elbow drives back, not upward.' },
-  { name:'Barbell Romanian Deadlift', muscle:'Back',      cue:'Push hips back — feel the hamstring load throughout.' },
-  { name:'Cable Seated Row',          muscle:'Back',      cue:'Torso stays still. Squeeze shoulder blades at end range.' },
-  { name:'Cable Lat Pulldown',        muscle:'Back',      cue:'Pull to upper chest. Elbows drive down and back.' },
-  { name:'Barbell Back Squat',        muscle:'Legs',      cue:'Depth, braced core, chest tall. Knees track over toes.' },
-  { name:'Barbell Front Squat',       muscle:'Legs',      cue:'More quad-dominant. Elbows high, upright torso throughout.' },
-  { name:'Romanian Deadlift (DB)',    muscle:'Legs',      cue:'Push hips back not down. Feel the hamstring stretch.' },
-  { name:'Bulgarian Split Squat',     muscle:'Legs',      cue:'Rear foot elevated. Go deep. Best single-leg exercise.' },
-  { name:'Barbell Lunge',             muscle:'Legs',      cue:'Big step, torso upright. Knee just off floor at bottom.' },
-  { name:'Goblet Squat',              muscle:'Legs',      cue:'Dumbbell front-loaded. Great for depth and posture.' },
-  { name:'Barbell Overhead Press',    muscle:'Shoulders', cue:'Brace core, bar travels straight up. Lock out fully.' },
-  { name:'Dumbbell Shoulder Press',   muscle:'Shoulders', cue:'Wrists over elbows at bottom. Full range of motion.' },
-  { name:'Arnold Press',              muscle:'Shoulders', cue:'Rotation works all 3 heads. Slow and controlled.' },
-  { name:'Cable Face Pull',           muscle:'Shoulders', cue:'Essential for posture. Elbows high, pull to face.' },
-  { name:'Dumbbell Push Press',       muscle:'Shoulders', cue:'Slight dip then drive — load more than strict press.' },
-  { name:'Cable Upright Row',         muscle:'Shoulders', cue:'Wide grip. Elbows lead. Pull to chin height.' },
-  { name:'Barbell Rollout',           muscle:'Core',      cue:'Small plates only. Stay rigid — do not collapse at hips.' },
-  { name:'Cable Crunch',              muscle:'Core',      cue:'Crunch DOWN not forward. Abs work, not hip flexors.' },
-  { name:'Hanging Leg Raise',         muscle:'Core',      cue:'Posterior tilt at top for full ab engagement. No swing.' },
-  { name:'Pallof Press',              muscle:'Core',      cue:'Anti-rotation cable. Resist the pull — core stability.' },
-  { name:'Weighted Plank',            muscle:'Core',      cue:'Plate on back. Standard plank too easy — always load.' },
-  { name:'Dead Bug',                  muscle:'Core',      cue:'Lower back glued to floor. Opposite arm-leg throughout.' },
+  { name:'Barbell Bench Press',       muscle:'Chest',     cue:'Arch back, retract blades. 3-sec down, explode up. Fail at 6-10 reps.' },
+  { name:'Incline Barbell Press',     muscle:'Chest',     cue:'30-45° bench. Upper chest. Control down, press to failure.' },
+  { name:'Dumbbell Chest Press',      muscle:'Chest',     cue:'Greater ROM. Deep stretch at bottom. Push to failure.' },
+  { name:'Weighted Dips',             muscle:'Chest',     cue:'Lean forward for chest. Slow descent. Go to failure.' },
+  { name:'Cable Fly (Low to High)',   muscle:'Chest',     cue:'Arms slightly bent. Squeeze hard at top. Constant tension.' },
+  { name:'Incline Dumbbell Press',    muscle:'Chest',     cue:'Elbows 45°. Drive up and in. Fail at 8-12 reps.' },
+  { name:'Barbell Bent-Over Row',     muscle:'Back',      cue:'Hinge 45°, chest up. Pull to lower ribs. Hard squeeze.' },
+  { name:'Deadlift',                  muscle:'Back',      cue:'Bar to shins. Big breath. Push floor away. Lock hips out.' },
+  { name:'Single-Arm Dumbbell Row',   muscle:'Back',      cue:'Full hang at bottom. Drive elbow back. Fail each side.' },
+  { name:'Barbell Romanian Deadlift', muscle:'Back',      cue:'Hinge back — not down. Feel hamstrings load fully.' },
+  { name:'Cable Seated Row',          muscle:'Back',      cue:'No torso swing. Elbows tight. Squeeze blades to failure.' },
+  { name:'Cable Lat Pulldown',        muscle:'Back',      cue:'Bar to upper chest. Elbows drive down and back. Fail at 10-15.' },
+  { name:'Barbell Back Squat',        muscle:'Legs',      cue:'Brace, depth, knees out. Explode up. Fail 5-8 reps.' },
+  { name:'Barbell Front Squat',       muscle:'Legs',      cue:'Elbows high. Upright torso. Deep — fail at 6-10.' },
+  { name:'Romanian Deadlift (DB)',    muscle:'Legs',      cue:'Push hips back. Feel hamstring stretch. Slow eccentric.' },
+  { name:'Bulgarian Split Squat',     muscle:'Legs',      cue:'Rear foot elevated. Front knee tracks toe. Fail each leg.' },
+  { name:'Barbell Lunge',             muscle:'Legs',      cue:'Big step. Upright torso. Knee off floor. Fail per leg.' },
+  { name:'Goblet Squat',              muscle:'Legs',      cue:'DB front-loaded. Great depth. Pause at bottom.' },
+  { name:'Barbell Overhead Press',    muscle:'Shoulders', cue:'Brace core. Bar straight up. Lock out fully. Fail 6-10.' },
+  { name:'Dumbbell Shoulder Press',   muscle:'Shoulders', cue:'Full ROM. Wrists over elbows at bottom. Fail 8-12.' },
+  { name:'Arnold Press',              muscle:'Shoulders', cue:'Slow rotation through full range. All 3 heads worked.' },
+  { name:'Cable Face Pull',           muscle:'Shoulders', cue:'Elbows high. Pull to face. Essential for posture. High reps to fail.' },
+  { name:'Dumbbell Push Press',       muscle:'Shoulders', cue:'Knee dip, then drive. Heavier than strict press.' },
+  { name:'Cable Upright Row',         muscle:'Shoulders', cue:'Wide grip. Elbows lead. Pull to chin. Fail at 12-15.' },
+  { name:'Barbell Rollout',           muscle:'Core',      cue:'Small plates. Stay rigid. Do not collapse. Fail each rep.' },
+  { name:'Cable Crunch',              muscle:'Core',      cue:'Crunch DOWN. Abs only — no hip flexors. High reps to fail.' },
+  { name:'Hanging Leg Raise',         muscle:'Core',      cue:'Posterior tilt at top. No swing. Go to failure.' },
+  { name:'Pallof Press',              muscle:'Core',      cue:'Anti-rotation. Resist the pull. 3s hold each rep.' },
+  { name:'Weighted Plank',            muscle:'Core',      cue:'Plate on back. Brace everything. Fail on time.' },
+  { name:'Dead Bug',                  muscle:'Core',      cue:'Back glued to floor. Opposite arm-leg. Slow and controlled.' },
 ];
  
-// ── SMART GYM GENERATOR ───────────────────────────
+// Progressive overload: suggest weight based on last session
+function getSuggestedWeight(exName) {
+  const hist = (S.get('liftHistory') || {})[exName];
+  if (!hist || !hist.length) return null;
+  const last = hist[hist.length - 1];
+  const maxReps = Math.max(...last.sets.map(s=>s.reps||0));
+  // if they got 10+ reps on all sets last time, suggest +2.5kg
+  const allHigh = last.sets.every(s=>(s.reps||0) >= 10);
+  const suggested = allHigh ? (last.weight||0) + 2.5 : (last.weight||0);
+  return { weight: suggested, date: last.date, sets: last.sets };
+}
+ 
+let currentWeightLogIdx = null;
+let sessionSetLogs = {}; // exName -> {weight, sets:[{reps}]}
+ 
+function openWeightLog(exName) {
+  currentWeightLogIdx = exName;
+  const hist = getSuggestedWeight(exName);
+  const modal = document.getElementById('weightLogModal');
+  document.getElementById('wlExName').textContent = exName;
+  const lastInfo = hist
+    ? `Last session: ${hist.weight}kg · ${hist.sets.map(s=>s.reps+'r').join(', ')} · ${new Date(hist.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`
+    : 'No previous data — enter your first session';
+  document.getElementById('wlLastTime').textContent = lastInfo;
+ 
+  const cur = sessionSetLogs[exName] || { weight: hist?.weight || '', sets:[{reps:''},{reps:''},{reps:''}] };
+  document.getElementById('wlSets').innerHTML = `
+    <div class="field"><label>Weight used (kg)</label>
+      <input type="number" step="0.5" id="wlWeight" value="${cur.weight}" placeholder="${hist ? 'Try '+hist.weight+'kg' : 'e.g. 60'}"/>
+    </div>
+    ${hist ? `<div style="background:var(--blue-dim);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:var(--blue3);">
+      💡 ${hist.weight > 0 && hist.sets.every(s=>(s.reps||0)>=10) ? 'You hit 10+ reps last time — try <strong>+2.5kg</strong> today' : 'Match or beat last session'}
+    </div>` : ''}
+    <div class="card-title" style="margin-bottom:8px;">Reps per set (go to failure)</div>
+    ${[0,1,2].map(i=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;color:var(--blue2);width:50px;">SET ${i+1}${i===0?' (warm)':''}</div>
+        <input type="number" id="wlReps${i}" value="${cur.sets[i]?.reps||''}" placeholder="${i===0?'lighter warm-up':'reps to failure'}"
+          style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px;outline:none;"/>
+      </div>`).join('')}
+    <div style="font-size:11px;color:var(--text3);margin-top:6px;">Set 1 = warm-up at ~60% weight · Sets 2-3 = working sets to failure</div>`;
+  modal.classList.add('open');
+}
+ 
+function saveSetLog() {
+  const exName = currentWeightLogIdx;
+  const weight = parseFloat(document.getElementById('wlWeight').value) || 0;
+  const sets = [0,1,2].map(i=>({ reps: parseInt(document.getElementById('wlReps'+i).value)||0 }));
+  sessionSetLogs[exName] = { weight, sets };
+ 
+  // Save to lift history
+  const liftHistory = S.get('liftHistory') || {};
+  if (!liftHistory[exName]) liftHistory[exName] = [];
+  liftHistory[exName].push({ date: Date.now(), weight, sets });
+  // Keep last 20 sessions per exercise
+  if (liftHistory[exName].length > 20) liftHistory[exName] = liftHistory[exName].slice(-20);
+  S.set('liftHistory', liftHistory);
+ 
+  document.getElementById('weightLogModal').classList.remove('open');
+  // Update display
+  const card = document.getElementById('exCard_'+exName.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,''));
+  if (card) {
+    const badge = card.querySelector('.ex-logged-badge');
+    const totalReps = sets.reduce((s,r)=>s+(r.reps||0),0);
+    if (badge) badge.textContent = `✓ ${weight}kg · ${sets.map(s=>s.reps+'r').join('/')}`;
+    badge.style.color = 'var(--green2)';
+  }
+  showToast(`✓ ${exName} logged!`);
+}
+ 
 function generateGym() {
   const now = Date.now(), DAY = 86400000;
   function score(ex) {
@@ -668,23 +960,47 @@ function generateGym() {
     return pool[Math.floor(Math.random()*Math.min(2,pool.length))];
   }).sort(()=>Math.random()-.5);
   state.currentGym = plan;
+  sessionSetLogs = {};
   plan.forEach(p=>{state.exHistory[p.name]=now;});
   S.set('exHistory',state.exHistory);
+ 
   const el = document.getElementById('gymPlan');
   el.innerHTML = plan.map((p,i)=>{
-    const last=state.exHistory[p.name], d=last?Math.round((now-last)/DAY):null;
-    const isNew = d===null||d>14;
-    return `<div class="exercise-item">
-      <div class="ex-num" style="background:${mColor[p.muscle]}">${i+1}</div>
-      <div class="ex-info">
-        <div class="ex-name">${p.name}${isNew?'<span class="badge badge-blue">OVERDUE</span>':''}</div>
-        <div class="ex-target">${p.muscle}</div>
-        <div class="ex-cue">${p.cue}</div>
+    const hist = getSuggestedWeight(p.name);
+    const safeId = p.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    const svgStart = getExSVG(p.name, 0);
+    const svgEnd   = getExSVG(p.name, 1);
+    const prevInfo = hist
+      ? `<span style="color:var(--text3);font-size:10px;">Last: ${hist.weight}kg · ${hist.sets.map(s=>s.reps+'r').join('/')}</span> &nbsp;
+         <span style="color:var(--blue2);font-size:10px;font-weight:600;">Try: ${hist.weight + (hist.sets.every(s=>(s.reps||0)>=10)?2.5:0)}kg today</span>`
+      : `<span style="color:var(--text3);font-size:10px;">No history — log your first session</span>`;
+    return `<div class="exercise-item" id="exCard_${safeId}" style="flex-direction:column;align-items:stretch;padding:12px 0;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="ex-num" style="background:${mColor[p.muscle]};flex-shrink:0;">${i+1}</div>
+        <div style="flex:1;">
+          <div class="ex-name" style="font-size:13px;">${p.name}</div>
+          <div class="ex-target">${p.muscle}</div>
+        </div>
+        <button onclick="openWeightLog('${p.name.replace(/'/g,"\\'")}')"
+          style="background:var(--blue-dim);border:1px solid var(--blue);border-radius:8px;padding:6px 10px;color:var(--blue2);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
+          + Log Sets
+        </button>
       </div>
-      <div class="ex-sets">3×10</div>
+      <!-- Illustrations -->
+      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;background:var(--bg3);border-radius:8px;padding:8px;">
+        ${svgStart}
+        <div style="display:flex;align-items:center;font-size:18px;color:var(--text3);">→</div>
+        ${svgEnd}
+      </div>
+      <!-- Cue & progress -->
+      <div class="ex-cue" style="margin-bottom:6px;">${p.cue}</div>
+      <div style="margin-bottom:4px;">${prevInfo}</div>
+      <div class="ex-logged-badge" style="font-size:11px;color:var(--text3);font-weight:600;min-height:16px;"></div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px;">Warm-up set → 2 working sets to failure · Rest 90s between sets</div>
     </div>`;
   }).join('');
   el.style.display='block';
+ 
   const cov = document.getElementById('gymCoverage');
   const pills = plan.map(p=>{
     const last=state.exHistory[p.name], d=last?Math.round((now-last)/DAY):null;
@@ -694,38 +1010,56 @@ function generateGym() {
   }).join('');
   cov.innerHTML=`<div style="font-size:9px;color:var(--text3);letter-spacing:1px;margin:8px 0 5px;">MUSCLE COVERAGE</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`;
   cov.style.display='block';
+  document.getElementById('gymSaveBtn').style.display='flex';
   document.getElementById('gymDownBtn').style.display='flex';
+ 
   const today=new Date().toDateString(),tStr=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   if (!state.workouts.find(w=>w.key==='weights'&&w.date===today)) {
-    state.workouts.push({key:'weights',name:'Weights',icon:'🏋️',date:today,time:tStr,dur:45,tod:'Morning',notes:'Generated',mood:null});
+    state.workouts.push({key:'weights',name:'Weights',icon:'🏋️',date:today,time:tStr,dur:45,tod:'Morning',notes:'Generated',mood:null,ts:Date.now()});
     S.set('workouts',state.workouts); renderWorkoutHistory(); computeStreak(); updateStreak(); renderDash();
   }
   showToast('💪 Smart session generated!');
 }
  
+function saveGymWeights() {
+  showToast('✅ All weights saved!');
+}
+ 
 function downloadGymPDF() {
   if (!state.currentGym) return;
   const today=new Date().toLocaleDateString('en-GB');
-  const rows=state.currentGym.map((p,i)=>`<tr>
-    <td style="text-align:center;width:34px;"><div style="width:26px;height:26px;border-radius:50%;background:${mColor[p.muscle]};color:#fff;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:13px;margin:auto;">${i+1}</div></td>
-    <td style="padding:8px 12px;"><strong>${p.name}</strong><br><span style="font-size:11px;color:#666;font-style:italic;">${p.cue}</span></td>
-    <td style="padding:8px;font-size:12px;color:#666;">${p.muscle}</td>
-    <td style="padding:8px;text-align:center;font-weight:bold;">3×10</td>
-    <td style="padding:8px;color:#aaa;font-size:12px;">___kg/___kg/___kg</td></tr>`).join('');
+  const liftHistory = S.get('liftHistory') || {};
+  const rows=state.currentGym.map((p,i)=>{
+    const hist = getSuggestedWeight(p.name);
+    const logged = sessionSetLogs[p.name];
+    const weightCol = logged
+      ? `<strong>${logged.weight}kg</strong> · ${logged.sets.map(s=>s.reps+'r').join('/')}`
+      : hist ? `Try: ${hist.weight + (hist.sets.every(s=>(s.reps||0)>=10)?2.5:0)}kg` : '___kg';
+    return `<tr>
+      <td style="text-align:center;width:34px;"><div style="width:26px;height:26px;border-radius:50%;background:${mColor[p.muscle]};color:#fff;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:13px;margin:auto;">${i+1}</div></td>
+      <td style="padding:8px 12px;"><strong>${p.name}</strong><br><span style="font-size:11px;color:#666;font-style:italic;">${p.cue}</span></td>
+      <td style="padding:8px;font-size:12px;color:#666;">${p.muscle}</td>
+      <td style="padding:8px;font-size:12px;">Warm-up + 2× to failure</td>
+      <td style="padding:8px;font-size:12px;">${weightCol}</td></tr>`;
+  }).join('');
   const html=`<!DOCTYPE html><html><head><title>FORGE ${today}</title>
-  <style>body{font-family:Arial,sans-serif;padding:32px;max-width:680px;margin:auto;}
-  h1{font-size:36px;letter-spacing:4px;color:#1e40af;} .sub{color:#888;font-size:12px;margin-bottom:24px;}
+  <style>body{font-family:Arial,sans-serif;padding:32px;max-width:720px;margin:auto;}
+  h1{font-size:36px;letter-spacing:4px;color:#1e40af;margin-bottom:2px;} .sub{color:#888;font-size:12px;margin-bottom:24px;}
   table{width:100%;border-collapse:collapse;} tr{border-bottom:1px solid #eee;}
   th{text-align:left;font-size:11px;color:#999;padding:6px 8px;border-bottom:2px solid #ddd;}
-  .note{margin-top:24px;padding:14px;background:#f0f4ff;border-radius:8px;font-size:12px;color:#555;line-height:1.6;}</style>
-  </head><body><h1>FORGE</h1>
-  <div class="sub">SESSION · ${today} · 3×10 · ~45 MINS · REST 60-90s</div>
-  <table><thead><tr><th></th><th>Exercise</th><th>Muscle</th><th>Sets</th><th>Weight</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="note"><strong>Progressive Overload:</strong> Hit all 3×10 cleanly? Add 2.5-5kg next session.<br>
-  <strong>Protein:</strong> Hit your daily target to protect muscle while in deficit.</div></body></html>`;
+  .note{margin-top:24px;padding:14px;background:#f0f4ff;border-radius:8px;font-size:12px;color:#555;line-height:1.8;}
+  </style></head><body><h1>FORGE</h1>
+  <div class="sub">SESSION · ${today} · SETS TO FAILURE · REST 90s</div>
+  <table><thead><tr><th></th><th>Exercise</th><th>Muscle</th><th>Protocol</th><th>Weight / Result</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="note">
+    <strong>Protocol:</strong> Set 1 = warm-up at ~60% of working weight. Sets 2-3 = maximum reps to failure with good form.<br>
+    <strong>Progressive Overload:</strong> If you hit 10+ reps on both working sets → add 2.5kg next session.<br>
+    <strong>Rest:</strong> 90 seconds between sets. 2-3 minutes after deadlifts/squats.<br>
+    <strong>Protein:</strong> Hit your daily target. Muscle is built in recovery, not in the gym.
+  </div></body></html>`;
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
-  a.download=`FORGE_${today.replace(/\//g,'-')}.html`; a.click();
+  a.download='FORGE_'+today.replace(/\//g,'-')+'.html'; a.click();
   showToast('📥 Plan downloaded!');
 }
  
@@ -1032,63 +1366,115 @@ function foodSearch(query) {
   return scored.slice(0, 6);
 }
  
+// ── MEAL BASKET ──────────────────────────────────────────────
+let mealBasket = [];
+ 
 function liveSearch(val) {
   const dd = document.getElementById('searchDropdown');
   const results = foodSearch(val);
   if (!results.length || val.length < 2) { dd.style.display='none'; return; }
   dd.style.display = 'block';
-  dd.innerHTML = results.map((f,i) => `
-    <div onclick="selectSearchResult(${i},'${f.name.replace(/'/g,"\\'")}',${f.cal},${f.prot},${f.carbs},${f.fat})"
-      style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;"
+  dd.innerHTML = results.map(f => `
+    <div onclick="selectFromDropdown('${f.name.replace(/'/g,"\\'")}',${f.cal},${f.prot},${f.carbs},${f.fat})"
+      style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;"
       onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
       <span>${f.name}</span>
-      <span style="float:right;font-size:11px;color:var(--text2);">${f.cal} kcal · P:${f.prot}g</span>
+      <span style="font-size:11px;color:var(--text2);">${f.cal} kcal · P:${f.prot}g</span>
     </div>`).join('');
 }
  
-function selectSearchResult(i, name, cal, prot, carbs, fat) {
-  document.getElementById('foodDesc').value = name;
-  document.getElementById('foodCal').value  = cal;
-  document.getElementById('foodProt2').value = prot;
-  document.getElementById('foodCarb2').value = carbs;
-  document.getElementById('foodFat2').value  = fat;
-  document.getElementById('foodInput').value = name;
+function selectFromDropdown(name, cal, prot, carbs, fat) {
+  document.getElementById('foodInput').value = '';
   document.getElementById('searchDropdown').style.display = 'none';
-  document.getElementById('lookupHint').style.display = 'block';
-  document.getElementById('lookupHintText').textContent = `${name} — ${cal} kcal, P:${prot}g, C:${carbs}g, F:${fat}g`;
+  addToBasket({name, cal, prot, carbs, fat});
 }
  
-function lookupFood() {
+function addBasketItem() {
   const q = document.getElementById('foodInput').value.trim();
   if (!q) { showToast('Type a food name first!'); return; }
   const results = foodSearch(q);
   if (results.length) {
-    selectSearchResult(0, results[0].name, results[0].cal, results[0].prot, results[0].carbs, results[0].fat);
-    showToast('✓ Found — adjust numbers if needed');
+    addToBasket(results[0]);
+    document.getElementById('foodInput').value = '';
+    document.getElementById('searchDropdown').style.display = 'none';
   } else {
-    showToast('Not in database — enter numbers manually');
-    document.getElementById('foodDesc').value = q;
-    document.getElementById('foodInput').value = q;
-    document.getElementById('searchDropdown').style.display='none';
+    document.getElementById('customName').value = q;
+    ['customCal','customProt','customCarbs','customFat'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('customItemPanel').style.display = 'block';
+    document.getElementById('manualToggleIcon').textContent = '－';
+    document.getElementById('searchDropdown').style.display = 'none';
+    showToast('Not found — enter details below');
+    document.getElementById('customCal').focus();
   }
 }
  
+function toggleManualPanel() {
+  const panel = document.getElementById('customItemPanel');
+  const icon  = document.getElementById('manualToggleIcon');
+  const open  = panel.style.display === 'none' || panel.style.display === '';
+  panel.style.display = open ? 'block' : 'none';
+  icon.textContent = open ? '－' : '＋';
+  if (open) document.getElementById('customName').focus();
+}
+ 
+function addCustomItem() {
+  const name  = document.getElementById('customName').value.trim();
+  const cal   = parseFloat(document.getElementById('customCal').value)   || 0;
+  const prot  = parseFloat(document.getElementById('customProt').value)  || 0;
+  const carbs = parseFloat(document.getElementById('customCarbs').value) || 0;
+  const fat   = parseFloat(document.getElementById('customFat').value)   || 0;
+  if (!name) { showToast('Enter a name!'); return; }
+  addToBasket({name, cal, prot, carbs, fat});
+  document.getElementById('customItemPanel').style.display = 'none';
+  document.getElementById('foodInput').value = '';
+  ['customName','customCal','customProt','customCarbs','customFat'].forEach(id=>document.getElementById(id).value='');
+}
+ 
+function addToBasket(item) {
+  mealBasket.push({...item});
+  renderBasket();
+  showToast('+ ' + item.name);
+}
+ 
+function removeFromBasket(i) {
+  mealBasket.splice(i, 1);
+  renderBasket();
+}
+ 
+function renderBasket() {
+  const el = document.getElementById('mealBasket');
+  const itemsEl = document.getElementById('basketItems');
+  if (!mealBasket.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  itemsEl.innerHTML = mealBasket.map((item, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      padding:7px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px;border-left:3px solid var(--blue);">
+      <div>
+        <div style="font-size:13px;font-weight:500;">${item.name}</div>
+        <div style="font-size:10px;color:var(--text2);">${item.cal} kcal · P:${item.prot}g · C:${item.carbs}g · F:${item.fat}g</div>
+      </div>
+      <button onclick="removeFromBasket(${i})"
+        style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 4px;">&#x2715;</button>
+    </div>`).join('');
+  const tot = mealBasket.reduce((a,b)=>({cal:a.cal+b.cal,prot:a.prot+b.prot,carbs:a.carbs+b.carbs,fat:a.fat+b.fat}),{cal:0,prot:0,carbs:0,fat:0});
+  document.getElementById('btCal').textContent   = Math.round(tot.cal)  + ' kcal';
+  document.getElementById('btProt').textContent  = 'P: ' + Math.round(tot.prot)  + 'g';
+  document.getElementById('btCarbs').textContent = 'C: ' + Math.round(tot.carbs) + 'g';
+  document.getElementById('btFat').textContent   = 'F: ' + Math.round(tot.fat)   + 'g';
+}
+ 
 function initFavs(){if(!state.favFoods.length){state.favFoods=DEFAULT_FAVS;S.set('favs',state.favFoods);}}
-function renderFavs(){
-  document.getElementById('favsRow').innerHTML=state.favFoods.map((f,i)=>
-    `<div class="fav-btn" onclick="quickAddFav(${i})" title="${f.cal} kcal · P:${f.prot}g">${f.name}</div>`).join('');
+function renderFavs(filter=''){
+  const q = filter.toLowerCase();
+  const filtered = state.favFoods
+    .map((f,i)=>({...f,i}))
+    .filter(f => !q || f.name.toLowerCase().includes(q));
+  document.getElementById('favsRow').innerHTML = filtered.length
+    ? filtered.map(f=>`<div class="fav-btn" onclick="quickAddFav(${f.i})" title="${f.cal} kcal · P:${f.prot}g">${f.name}</div>`).join('')
+    : `<div style="font-size:11px;color:var(--text3);padding:4px 2px;">No favourites match "${filter}"</div>`;
 }
-function quickAddFav(i){
-  const f=state.favFoods[i];
-  document.getElementById('foodInput').value=f.name;
-  document.getElementById('foodDesc').value=f.name;
-  document.getElementById('foodCal').value=f.cal;
-  document.getElementById('foodProt2').value=f.prot;
-  document.getElementById('foodCarb2').value=f.carbs;
-  document.getElementById('foodFat2').value=f.fat;
-  document.getElementById('lookupHint').style.display='block';
-  document.getElementById('lookupHintText').textContent=`${f.name} — ${f.cal} kcal, P:${f.prot}g, C:${f.carbs}g, F:${f.fat}g`;
-}
+function filterFavs(val){ renderFavs(val); }
+function quickAddFav(i){ addToBasket(state.favFoods[i]); }
  
 function setFoodDateDefault(){
   const d=document.getElementById('foodDate');
@@ -1096,36 +1482,38 @@ function setFoodDateDefault(){
 }
  
 function logFood(){
-  const name=document.getElementById('foodDesc').value.trim()||document.getElementById('foodInput').value.trim();
-  if(!name){showToast('Enter a food description!');return;}
-  const cal  =parseFloat(document.getElementById('foodCal').value)  ||0;
-  const prot =parseFloat(document.getElementById('foodProt2').value) ||0;
-  const carbs=parseFloat(document.getElementById('foodCarb2').value) ||0;
-  const fat  =parseFloat(document.getElementById('foodFat2').value)  ||0;
-  const meal =document.getElementById('mealType').value;
-  const dateVal=document.getElementById('foodDate').value||new Date().toISOString().split('T')[0];
-  const dateStr=new Date(dateVal+'T12:00:00').toDateString();
-  const tStr=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  state.food.push({name,cal,prot,carbs,fat,meal,time:tStr,date:dateStr,ts:Date.now()});
+  if (!mealBasket.length){ showToast('Add at least one item first!'); return; }
+  const meal    = document.getElementById('mealType').value;
+  const dateVal = document.getElementById('foodDate').value || new Date().toISOString().split('T')[0];
+  const dateStr = new Date(dateVal+'T12:00:00').toDateString();
+  const tStr    = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const name    = mealBasket.map(i=>i.name).join(' + ');
+  const cal     = mealBasket.reduce((s,i)=>s+i.cal,  0);
+  const prot    = mealBasket.reduce((s,i)=>s+i.prot, 0);
+  const carbs   = mealBasket.reduce((s,i)=>s+i.carbs,0);
+  const fat     = mealBasket.reduce((s,i)=>s+i.fat,  0);
+  const items   = [...mealBasket];
+  state.food.push({name,cal,prot,carbs,fat,meal,time:tStr,date:dateStr,ts:Date.now(),items});
   S.set('food',state.food);
-  ['foodInput','foodDesc','foodCal','foodProt2','foodCarb2','foodFat2'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('lookupHint').style.display='none';
-  document.getElementById('searchDropdown').style.display='none';
+  mealBasket = [];
+  renderBasket();
+  document.getElementById('foodInput').value = '';
+  document.getElementById('searchDropdown').style.display = 'none';
+  document.getElementById('customItemPanel').style.display = 'none';
   renderFoodLog(); updateMacros(); renderDash();
-  showToast(`\u2705 ${meal} logged!`);
+  showToast('\u2705 ' + meal + ' logged \u2014 ' + Math.round(cal) + ' kcal');
 }
  
 function saveAsFav(){
-  const name=document.getElementById('foodDesc').value.trim()||document.getElementById('foodInput').value.trim();
-  if(!name){showToast('Enter food first!');return;}
+  if (!mealBasket.length){ showToast('Add items to basket first!'); return; }
+  const name  = mealBasket.length === 1 ? mealBasket[0].name : mealBasket.map(i=>i.name).join(' + ');
   if(state.favFoods.find(f=>f.name===name)){showToast('Already a favourite!');return;}
-  state.favFoods.push({name,
-    cal:  parseFloat(document.getElementById('foodCal').value)  ||0,
-    prot: parseFloat(document.getElementById('foodProt2').value) ||0,
-    carbs:parseFloat(document.getElementById('foodCarb2').value) ||0,
-    fat:  parseFloat(document.getElementById('foodFat2').value)  ||0,
-  });
-  S.set('favs',state.favFoods); renderFavs(); showToast('\u2605 Saved to favourites!');
+  const cal   = mealBasket.reduce((s,i)=>s+i.cal,  0);
+  const prot  = mealBasket.reduce((s,i)=>s+i.prot, 0);
+  const carbs = mealBasket.reduce((s,i)=>s+i.carbs,0);
+  const fat   = mealBasket.reduce((s,i)=>s+i.fat,  0);
+  state.favFoods.push({name,cal,prot,carbs,fat});
+  S.set('favs',state.favFoods); renderFavs(); showToast('\u2605 Saved as favourite!');
 }
  
 function getTodayFood(){return state.food.filter(f=>f.date===new Date().toDateString());}
@@ -1446,6 +1834,7 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 document.getElementById('goalModal').addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+document.getElementById('weightLogModal').addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
  
 // ── INIT ──────────────────────────────────────────
 function init(){
@@ -1461,3 +1850,4 @@ init();
 </script>
 </body>
 </html>
+ 
