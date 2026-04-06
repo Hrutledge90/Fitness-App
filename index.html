@@ -410,10 +410,11 @@ canvas{width:100%!important;}
       </div>
  
       <div class="field-row">
-        <div class="field"><label>Duration (override, mins)</label><input type="number" id="durOverride" placeholder="Default auto"/></div>
-        <div class="field"><label>Time of day</label>
-          <select id="workoutTOD"><option>Early morning</option><option>Morning</option><option>Lunchtime</option><option>Afternoon</option><option>Evening</option></select>
-        </div>
+        <div class="field"><label>Duration (mins)</label><input type="number" id="durOverride" placeholder="Default auto"/></div>
+        <div class="field"><label>Date</label><input type="date" id="workoutDate"/></div>
+      </div>
+      <div class="field"><label>Time of day</label>
+        <select id="workoutTOD"><option>Early morning</option><option>Morning</option><option>Lunchtime</option><option>Afternoon</option><option>Evening</option></select>
       </div>
       <div class="field"><label>Variation / Notes (e.g. "Half marathon instead of 8k")</label>
         <textarea id="workoutVariation" placeholder="Describe any changes to the usual session..."></textarea>
@@ -774,187 +775,231 @@ const MUSCLES = ['Chest','Back','Legs','Shoulders','Core'];
 const mColor = { Chest:'#3b82f6', Back:'#06b6d4', Legs:'#10b981', Shoulders:'#8b5cf6', Core:'#f59e0b' };
  
 // SVG stick-figure illustrations: two poses [start, end] per exercise
-const EX_SVG = {
-  'Barbell Bench Press': [
-    `<svg viewBox="0 0 80 70" width="80" height="70"><rect x="10" y="40" width="60" height="5" rx="2" fill="#3b82f6" opacity=".3"/>
-     <line x1="10" y1="42" x2="5" y2="42" stroke="#60a5fa" stroke-width="2.5"/><line x1="70" y1="42" x2="75" y2="42" stroke="#60a5fa" stroke-width="2.5"/>
-     <circle cx="40" cy="18" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="24" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="28" x2="28" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="28" x2="52" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="34" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="46" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">START</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70"><rect x="15" y="22" width="50" height="5" rx="2" fill="#3b82f6" opacity=".6"/>
-     <line x1="15" y1="24" x2="10" y2="24" stroke="#60a5fa" stroke-width="2.5"/><line x1="65" y1="24" x2="70" y2="24" stroke="#60a5fa" stroke-width="2.5"/>
-     <circle cx="40" cy="18" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="24" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="26" x2="20" y2="24" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="26" x2="60" y2="24" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="34" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="46" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">PRESS</text></svg>`],
-  'Barbell Bent-Over Row': [
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="18" x2="40" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="28" y2="35" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="52" y2="35" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="35" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="45" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <rect x="16" y="46" width="48" height="4" rx="2" fill="#06b6d4" opacity=".4"/>
-     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">START</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="18" x2="40" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="22" y2="26" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="58" y2="26" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="35" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="45" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <rect x="16" y="28" width="48" height="4" rx="2" fill="#06b6d4" opacity=".8"/>
-     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">ROW UP</text></svg>`],
-  'Barbell Back Squat': [
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <rect x="18" y="18" width="44" height="4" rx="2" fill="#10b981" opacity=".5"/>
-     <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="18" x2="40" y2="35" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="35" x2="28" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="35" x2="52" y2="50" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="28" y1="50" x2="26" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="52" y1="50" x2="54" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">STAND</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <rect x="18" y="26" width="44" height="4" rx="2" fill="#10b981" opacity=".5"/>
-     <circle cx="40" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="26" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="24" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="56" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="24" y1="46" x2="22" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="56" y1="46" x2="58" y2="60" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">SQUAT</text></svg>`],
-  'Deadlift': [
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <circle cx="40" cy="22" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="28" x2="40" y2="42" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="32" x2="26" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="32" x2="54" y2="46" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="42" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="42" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <rect x="18" y="52" width="44" height="5" rx="2" fill="#06b6d4" opacity=".5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">HINGE</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <circle cx="40" cy="10" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="16" x2="40" y2="34" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="26" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="54" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="34" x2="34" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="34" x2="46" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
-     <rect x="18" y="42" width="44" height="5" rx="2" fill="#06b6d4" opacity=".8"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">LOCK OUT</text></svg>`],
-  'Barbell Overhead Press': [
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <circle cx="40" cy="10" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="16" x2="40" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="20" x2="22" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="20" x2="58" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
-     <rect x="16" y="28" width="48" height="4" rx="2" fill="#8b5cf6" opacity=".6"/>
-     <line x1="40" y1="36" x2="34" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="36" x2="46" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">START</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <circle cx="40" cy="10" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="16" x2="40" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="20" x2="20" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="20" x2="60" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <rect x="14" y="6" width="52" height="4" rx="2" fill="#8b5cf6" opacity=".8"/>
-     <line x1="40" y1="36" x2="34" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="36" x2="46" y2="52" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="65" text-anchor="middle" fill="#3d5278" font-size="7">PRESSED</text></svg>`],
-  'Cable Lat Pulldown': [
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <line x1="40" y1="2" x2="20" y2="8" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
-     <line x1="40" y1="2" x2="60" y2="8" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
-     <circle cx="40" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="26" x2="40" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="20" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="60" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="40" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="40" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">ARMS UP</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <line x1="40" y1="2" x2="20" y2="30" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
-     <line x1="40" y1="2" x2="60" y2="30" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3"/>
-     <circle cx="40" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="26" x2="40" y2="42" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="22" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="30" x2="58" y2="30" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="42" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="42" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">PULL DOWN</text></svg>`],
-  'Bulgarian Split Squat': [
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <rect x="50" y="44" width="20" height="5" rx="2" fill="#3d5278"/>
-     <circle cx="32" cy="14" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="32" y1="20" x2="32" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="32" y1="28" x2="22" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="32" y1="28" x2="42" y2="36" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="22" y1="38" x2="20" y2="55" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="42" y1="36" x2="55" y2="44" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">STAND</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <rect x="50" y="44" width="20" height="5" rx="2" fill="#3d5278"/>
-     <circle cx="28" cy="20" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="28" y1="26" x2="28" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="28" y1="32" x2="14" y2="44" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="28" y1="32" x2="42" y2="40" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="14" y1="44" x2="13" y2="58" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="42" y1="40" x2="55" y2="44" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">DIP DOWN</text></svg>`],
-  'Hanging Leg Raise': [
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <line x1="30" y1="2" x2="50" y2="2" stroke="#3d5278" stroke-width="3"/>
-     <line x1="36" y1="2" x2="34" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="44" y1="2" x2="46" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <circle cx="40" cy="16" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="34" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="46" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">HANG</text></svg>`,
-    `<svg viewBox="0 0 80 70" width="80" height="70">
-     <line x1="30" y1="2" x2="50" y2="2" stroke="#3d5278" stroke-width="3"/>
-     <line x1="36" y1="2" x2="34" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="44" y1="2" x2="46" y2="10" stroke="#e8edf8" stroke-width="1.5"/>
-     <circle cx="40" cy="16" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="22" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="24" y2="32" stroke="#e8edf8" stroke-width="1.5"/>
-     <line x1="40" y1="38" x2="56" y2="32" stroke="#e8edf8" stroke-width="1.5"/>
-     <text x="40" y="50" text-anchor="middle" fill="#3d5278" font-size="7">RAISE</text></svg>`],
+// ── EXERCISE ILLUSTRATIONS ────────────────────────────────────
+// Each entry: { desc, muscles, steps: [text], img: html string }
+// Images use emoji + SVG layout diagrams — clear, recognisable, no stick figures
+ 
+const EX_INFO = {
+  'Barbell Bench Press': {
+    emoji:'🏋️', muscles:'Chest · Shoulders · Triceps',
+    keyPoints:['Lie flat, bar over lower chest','Grip just wider than shoulder width','Lower bar with control to chest','Drive bar up explosively'],
+    setup:'Flat bench, barbell racked at arms length above chest'
+  },
+  'Incline Barbell Press': {
+    emoji:'📐', muscles:'Upper Chest · Front Delts · Triceps',
+    keyPoints:['Bench set to 30-45°','Bar lowers to upper chest','Elbows at 45° angle to body','Squeeze at the top'],
+    setup:'Incline bench, barbell — targets upper chest more than flat'
+  },
+  'Dumbbell Chest Press': {
+    emoji:'💪', muscles:'Chest · Shoulders · Triceps',
+    keyPoints:['Dumbbells at chest level, elbows bent','Press up and slightly in','Full stretch at bottom','Greater range than barbell'],
+    setup:'Flat bench, two dumbbells — allows deeper stretch'
+  },
+  'Weighted Dips': {
+    emoji:'⬇️', muscles:'Chest · Triceps · Front Delts',
+    keyPoints:['Lean forward for chest focus','Lower until upper arms are parallel','Drive back up through palms','Add weight belt or hold dumbbell between legs'],
+    setup:'Parallel bars or dip station — lean forward to hit chest'
+  },
+  'Cable Fly (Low to High)': {
+    emoji:'🔄', muscles:'Chest (inner & upper)',
+    keyPoints:['Cables set low, step forward','Slight bend in elbows — keep it','Arc the weight up and together','Squeeze hands together at top'],
+    setup:'Cable machine, both cables at lowest setting'
+  },
+  'Incline Dumbbell Press': {
+    emoji:'📐', muscles:'Upper Chest · Front Delts',
+    keyPoints:['30-45° incline bench','Lower dumbbells to upper chest','Elbows at 45° — not flared wide','Drive up and slightly inward'],
+    setup:'Incline bench, two dumbbells'
+  },
+  'Barbell Bent-Over Row': {
+    emoji:'🚣', muscles:'Back · Rear Delts · Biceps',
+    keyPoints:['Hinge forward at hips to ~45°','Keep chest up and back flat','Pull bar to lower ribs','Squeeze shoulder blades hard at top'],
+    setup:'Barbell on floor — hinge over it, do not round your back'
+  },
+  'Deadlift': {
+    emoji:'🏆', muscles:'Full Back · Glutes · Hamstrings · Core',
+    keyPoints:['Bar over mid-foot, grip just outside legs','Big breath, brace core','Push the floor away — do not pull','Lock hips out at the top, bar stays close'],
+    setup:'Barbell on floor — the king of all exercises'
+  },
+  'Single-Arm Dumbbell Row': {
+    emoji:'💪', muscles:'Lats · Rhomboids · Rear Delt · Biceps',
+    keyPoints:['Brace knee and hand on bench','Let arm hang fully to stretch lat','Drive elbow back — not up','Squeeze hard at the top'],
+    setup:'Flat bench for support, one dumbbell'
+  },
+  'Barbell Romanian Deadlift': {
+    emoji:'🔙', muscles:'Hamstrings · Glutes · Lower Back',
+    keyPoints:['Stand tall, bar in hands at hips','Push hips back — not down','Feel the hamstrings stretch','Drive hips forward to return'],
+    setup:'Barbell — stand upright, hinge back to feel hamstrings'
+  },
+  'Cable Seated Row': {
+    emoji:'🚣', muscles:'Mid Back · Lats · Biceps',
+    keyPoints:['Sit tall, feet on platform','Arms fully extended at start','Pull handle to lower ribs','Squeeze shoulder blades — no torso swing'],
+    setup:'Cable row machine with foot platform and close-grip handle'
+  },
+  'Cable Lat Pulldown': {
+    emoji:'⬇️', muscles:'Lats · Biceps · Rear Delts',
+    keyPoints:['Grip wide, lean back slightly','Pull bar to upper chest — not behind neck','Elbows drive down and back','Full stretch at top between reps'],
+    setup:'Lat pulldown machine — wide bar at high cable'
+  },
+  'Barbell Back Squat': {
+    emoji:'🏋️', muscles:'Quads · Glutes · Hamstrings · Core',
+    keyPoints:['Bar on upper traps, not neck','Feet shoulder width, toes out slightly','Sit between your knees — depth!','Drive knees out, chest tall on the way up'],
+    setup:'Squat rack — bar rests on upper back, not neck'
+  },
+  'Barbell Front Squat': {
+    emoji:'🏋️', muscles:'Quads · Core · Upper Back',
+    keyPoints:['Bar rests on front delts, elbows high','More upright torso than back squat','Very quad-dominant — great for depth','Elbows must stay up throughout'],
+    setup:'Squat rack — bar sits on front of shoulders, elbows parallel to floor'
+  },
+  'Romanian Deadlift (DB)': {
+    emoji:'🔙', muscles:'Hamstrings · Glutes',
+    keyPoints:['Dumbbells at hips, standing tall','Push hips back — feel hamstrings load','Lower until you feel a deep stretch','Drive hips forward to stand'],
+    setup:'Two dumbbells — same movement as barbell RDL'
+  },
+  'Bulgarian Split Squat': {
+    emoji:'🦵', muscles:'Quads · Glutes · Hip Flexors',
+    keyPoints:['Rear foot elevated on bench','Front foot far enough forward','Drop back knee toward floor','Front knee tracks over toes'],
+    setup:'One bench behind you, dumbbells or barbell — brutally effective single-leg exercise'
+  },
+  'Barbell Lunge': {
+    emoji:'🦵', muscles:'Quads · Glutes · Hamstrings',
+    keyPoints:['Bar on upper back','Take a big step forward','Lower back knee just above floor','Push through front heel to return'],
+    setup:'Barbell on back — requires balance, great for leg development'
+  },
+  'Goblet Squat': {
+    emoji:'🏆', muscles:'Quads · Glutes · Core',
+    keyPoints:['Hold dumbbell vertically at chest','Feet shoulder width, toes slightly out','Squat deep — dumbbell counterbalances you','Keep chest tall and upright throughout'],
+    setup:'One dumbbell held at chest — great for learning squat depth'
+  },
+  'Barbell Overhead Press': {
+    emoji:'🔺', muscles:'Front & Side Delts · Triceps · Core',
+    keyPoints:['Bar at upper chest, just in front of face','Brace core hard before pressing','Press bar straight up — head moves back slightly','Lock out fully at the top'],
+    setup:'Barbell at shoulder height in rack — press it directly overhead'
+  },
+  'Dumbbell Shoulder Press': {
+    emoji:'🔺', muscles:'Delts · Triceps',
+    keyPoints:['Dumbbells at shoulder height','Wrists over elbows at bottom','Press up — bring dumbbells slightly together','Full lockout at top'],
+    setup:'Two dumbbells seated or standing'
+  },
+  'Arnold Press': {
+    emoji:'🔄', muscles:'All 3 Delt Heads · Triceps',
+    keyPoints:['Start with dumbbells in front, palms facing you','Rotate palms out as you press','Reverse the rotation on the way down','Slow — the rotation is the whole point'],
+    setup:'Two dumbbells — invented by Arnold, hits all three delt heads'
+  },
+  'Cable Face Pull': {
+    emoji:'😤', muscles:'Rear Delts · Rotator Cuff · Upper Traps',
+    keyPoints:['Rope attachment at eye level','Step back, pull rope to face','Elbows stay HIGH throughout','Hands end up by ears — squeeze hard'],
+    setup:'Cable machine with rope attachment at face height — essential for shoulder health'
+  },
+  'Dumbbell Push Press': {
+    emoji:'🚀', muscles:'Delts · Triceps · Legs (assist)',
+    keyPoints:['Dumbbells at shoulders','Slight knee dip — use legs to drive','Explode the weight up overhead','Allows heavier weight than strict press'],
+    setup:'Two dumbbells — use leg drive to press more than you could strict press'
+  },
+  'Cable Upright Row': {
+    emoji:'⬆️', muscles:'Side Delts · Traps · Biceps',
+    keyPoints:['Wide grip on straight bar or rope','Pull to chin — elbows lead high','Wide grip protects shoulder joint','Short controlled range'],
+    setup:'Cable machine with straight bar at lowest setting'
+  },
+  'Barbell Rollout': {
+    emoji:'🎯', muscles:'Deep Core · Abs · Lats',
+    keyPoints:['Kneel on mat, bar in front','Roll forward slowly — stay rigid!','Do NOT let hips drop or back arch','Pull back with lats to return'],
+    setup:'Barbell with small plates on floor — hardest core exercise there is'
+  },
+  'Cable Crunch': {
+    emoji:'🎯', muscles:'Abs (upper & lower)',
+    keyPoints:['Rope at high cable, kneel on floor','Hands at temples — do not pull with arms','Crunch DOWN — aim elbows to knees','Abs do the work, not hip flexors'],
+    setup:'Cable machine with rope at highest setting — kneel and crunch down'
+  },
+  'Hanging Leg Raise': {
+    emoji:'🎯', muscles:'Lower Abs · Hip Flexors',
+    keyPoints:['Hang from pull-up bar, arms straight','Tilt pelvis back before raising legs','Raise legs to parallel or higher','Lower with control — no swinging'],
+    setup:'Pull-up bar — hang and raise legs. No swinging, make it deliberate'
+  },
+  'Pallof Press': {
+    emoji:'💥', muscles:'Core (anti-rotation) · Obliques',
+    keyPoints:['Stand side-on to cable machine','Hold handle at chest, step away','Press out to full extension','Hold 2-3 seconds — resist the pull'],
+    setup:'Cable at mid-height, stand sideways — press and resist rotation'
+  },
+  'Weighted Plank': {
+    emoji:'🧱', muscles:'Full Core · Shoulders · Glutes',
+    keyPoints:['Forearms on floor, toes on floor','Have someone place plate on your back','Body completely straight — no sagging','Brace everything — glutes, abs, quads'],
+    setup:'Standard plank position with weight plate placed on upper back'
+  },
+  'Dead Bug': {
+    emoji:'🐛', muscles:'Deep Core · Transverse Abdominis',
+    keyPoints:['Lie on back, arms to ceiling, knees at 90°','Press lower back into floor — KEEP IT THERE','Extend opposite arm and leg slowly','Return and repeat other side'],
+    setup:'Floor exercise — lower back must stay flat throughout. Deceptively hard'
+  },
 };
  
-// Fallback SVG for exercises without custom art
-function defaultSVG(muscle, pose) {
-  const c = mColor[muscle] || '#3b82f6';
-  const label = pose === 0 ? 'START' : 'END';
-  const armY = pose === 0 ? 34 : 22;
-  return `<svg viewBox="0 0 80 70" width="80" height="70">
-    <circle cx="40" cy="12" r="6" fill="none" stroke="#e8edf8" stroke-width="1.5"/>
-    <line x1="40" y1="18" x2="40" y2="38" stroke="#e8edf8" stroke-width="1.5"/>
-    <line x1="40" y1="24" x2="26" y2="${armY}" stroke="#e8edf8" stroke-width="1.5"/>
-    <line x1="40" y1="24" x2="54" y2="${armY}" stroke="#e8edf8" stroke-width="1.5"/>
-    <line x1="40" y1="38" x2="33" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-    <line x1="40" y1="38" x2="47" y2="56" stroke="#e8edf8" stroke-width="1.5"/>
-    <circle cx="26" cy="${armY}" r="3" fill="${c}" opacity=".7"/>
-    <circle cx="54" cy="${armY}" r="3" fill="${c}" opacity=".7"/>
-    <text x="40" y="68" text-anchor="middle" fill="#3d5278" font-size="7">${label}</text>
-  </svg>`;
+function getExInfo(name) {
+  return EX_INFO[name] || {
+    emoji:'💪',
+    muscles:'Multiple muscle groups',
+    keyPoints:['Full range of motion','Control the eccentric','Go to failure on working sets','Progressive overload every session'],
+    setup:'Standard gym equipment'
+  };
 }
  
-function getExSVG(name, pose) {
-  const svgs = EX_SVG[name];
-  if (svgs) return svgs[pose] || svgs[0];
-  const ex = EXERCISES.find(e=>e.name===name);
-  return defaultSVG(ex ? ex.muscle : 'Chest', pose);
+function renderExCard(p, i) {
+  const info = getExInfo(p.name);
+  const hist = getSuggestedWeight(p.name);
+  const now = Date.now();
+  const safeId = p.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+  const prevInfo = hist
+    ? `<span style="color:var(--text3);font-size:10px;">Last: ${hist.weight}kg · ${hist.sets.map(s=>s.reps+'r').join('/')}</span>&nbsp;
+       <span style="color:var(--blue2);font-size:10px;font-weight:600;">→ Try ${hist.weight+(hist.sets.every(s=>(s.reps||0)>=10)?2.5:0)}kg</span>`
+    : `<span style="color:var(--text3);font-size:10px;">No history yet — log your first session</span>`;
+ 
+  return `<div class="exercise-item" id="exCard_${safeId}" style="flex-direction:column;align-items:stretch;padding:14px 0;border-bottom:1px solid var(--border);">
+ 
+    <!-- Header row -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="width:36px;height:36px;border-radius:50%;background:${mColor[p.muscle]};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${info.emoji}</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:14px;color:var(--text);">${p.name}</div>
+        <div style="font-size:10px;color:${mColor[p.muscle]};font-weight:600;text-transform:uppercase;letter-spacing:.5px;">${info.muscles}</div>
+      </div>
+      <button onclick="openWeightLog('${p.name.replace(/'/g,"\\'")}')"
+        style="background:var(--blue-dim);border:1px solid var(--blue);border-radius:8px;padding:7px 12px;
+               color:var(--blue2);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;">
+        + Log Sets
+      </button>
+    </div>
+ 
+    <!-- Setup description -->
+    <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid ${mColor[p.muscle]};">
+      <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">SETUP</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.5;">${info.setup}</div>
+    </div>
+ 
+    <!-- Key technique points -->
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">KEY TECHNIQUE POINTS</div>
+      ${info.keyPoints.map((pt,idx) => `
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:5px;">
+          <div style="width:18px;height:18px;border-radius:50%;background:${mColor[p.muscle]};display:flex;align-items:center;justify-content:center;
+                      font-size:9px;font-weight:700;color:#000;flex-shrink:0;margin-top:1px;">${idx+1}</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.4;">${pt}</div>
+        </div>`).join('')}
+    </div>
+ 
+    <!-- Coach cue -->
+    <div style="background:linear-gradient(135deg,#0a1528,#091020);border:1px solid var(--blue-dim);border-radius:8px;
+                padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--blue3);font-style:italic;line-height:1.5;">
+      💬 ${p.cue}
+    </div>
+ 
+    <!-- Progressive overload -->
+    <div style="margin-bottom:6px;">${prevInfo}</div>
+    <div class="ex-logged-badge" style="font-size:11px;color:var(--text3);font-weight:600;min-height:16px;"></div>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px;">
+      Warm-up set (60% weight) → 2 working sets to failure · Rest 90s between sets
+    </div>
+  </div>`;
 }
+ 
+function getExSVG(name, pose) { return ''; } // kept for compatibility
  
 const EXERCISES = [
   { name:'Barbell Bench Press',       muscle:'Chest',     cue:'Arch back, retract blades. 3-sec down, explode up. Fail at 6-10 reps.' },
@@ -1080,40 +1125,7 @@ function generateGym() {
   scheduleSave('exHistory',state.exHistory);
  
   const el = document.getElementById('gymPlan');
-  el.innerHTML = plan.map((p,i)=>{
-    const hist = getSuggestedWeight(p.name);
-    const safeId = p.name.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-    const svgStart = getExSVG(p.name, 0);
-    const svgEnd   = getExSVG(p.name, 1);
-    const prevInfo = hist
-      ? `<span style="color:var(--text3);font-size:10px;">Last: ${hist.weight}kg · ${hist.sets.map(s=>s.reps+'r').join('/')}</span> &nbsp;
-         <span style="color:var(--blue2);font-size:10px;font-weight:600;">Try: ${hist.weight + (hist.sets.every(s=>(s.reps||0)>=10)?2.5:0)}kg today</span>`
-      : `<span style="color:var(--text3);font-size:10px;">No history — log your first session</span>`;
-    return `<div class="exercise-item" id="exCard_${safeId}" style="flex-direction:column;align-items:stretch;padding:12px 0;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div class="ex-num" style="background:${mColor[p.muscle]};flex-shrink:0;">${i+1}</div>
-        <div style="flex:1;">
-          <div class="ex-name" style="font-size:13px;">${p.name}</div>
-          <div class="ex-target">${p.muscle}</div>
-        </div>
-        <button onclick="openWeightLog('${p.name.replace(/'/g,"\\'")}')"
-          style="background:var(--blue-dim);border:1px solid var(--blue);border-radius:8px;padding:6px 10px;color:var(--blue2);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
-          + Log Sets
-        </button>
-      </div>
-      <!-- Illustrations -->
-      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;background:var(--bg3);border-radius:8px;padding:8px;">
-        ${svgStart}
-        <div style="display:flex;align-items:center;font-size:18px;color:var(--text3);">→</div>
-        ${svgEnd}
-      </div>
-      <!-- Cue & progress -->
-      <div class="ex-cue" style="margin-bottom:6px;">${p.cue}</div>
-      <div style="margin-bottom:4px;">${prevInfo}</div>
-      <div class="ex-logged-badge" style="font-size:11px;color:var(--text3);font-weight:600;min-height:16px;"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px;">Warm-up set → 2 working sets to failure · Rest 90s between sets</div>
-    </div>`;
-  }).join('');
+  el.innerHTML = plan.map((p,i) => renderExCard(p, i)).join('');
   el.style.display='block';
  
   const cov = document.getElementById('gymCoverage');
@@ -1263,29 +1275,30 @@ function setMood(n) {
   for(let i=1;i<=5;i++) document.getElementById('mood'+i).classList.toggle('active',i===n);
 }
 function logWorkouts() {
-  const today=new Date().toDateString(), tStr=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const dateVal = document.getElementById('workoutDate').value || new Date().toISOString().split('T')[0];
+  const [dy,dm,dd2] = dateVal.split('-').map(Number);
+  const dateStr = new Date(dy, dm-1, dd2).toDateString();
+  const tStr=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   const tod=document.getElementById('workoutTOD').value;
   const variation=document.getElementById('workoutVariation').value;
   const durOverride=parseFloat(document.getElementById('durOverride').value)||null;
   const mood=state.selectedMood;
  
-  // log selected preset workouts
   let logged=0;
   state.selectedWorkouts.forEach(key=>{
     const w=WORKOUTS.find(x=>x.key===key);
     const dur=durOverride||w.defaultDur;
     const cals=estimateCalsBurned(key,dur,variation);
-    state.workouts.push({key,name:w.name,icon:w.icon,date:today,time:tStr,dur,tod,notes:variation,mood,calsBurned:cals,ts:Date.now()});
+    state.workouts.push({key,name:w.name,icon:w.icon,date:dateStr,time:tStr,dur,tod,notes:variation,mood,calsBurned:cals,ts:Date.now()});
     logged++;
   });
  
-  // log "other"
   const otherDesc=document.getElementById('otherDesc').value.trim();
   const otherDur=parseFloat(document.getElementById('otherDur').value)||0;
   const otherInt=document.getElementById('otherIntensity').value;
   if (otherDesc && otherDur) {
     const cals=Math.round(otherDur*(otherInt==='High'?10:otherInt==='Low'?4:7));
-    state.workouts.push({key:'other',name:otherDesc,icon:'🏃',date:today,time:tStr,dur:otherDur,tod,notes:otherInt+' intensity',mood,calsBurned:cals,ts:Date.now()});
+    state.workouts.push({key:'other',name:otherDesc,icon:'🏃',date:dateStr,time:tStr,dur:otherDur,tod,notes:otherInt+' intensity',mood,calsBurned:cals,ts:Date.now()});
     logged++;
   }
  
@@ -1295,7 +1308,7 @@ function logWorkouts() {
   [1,2,3,4,5].forEach(i=>document.getElementById('mood'+i).classList.remove('active'));
   ['durOverride','workoutVariation','otherDesc','otherDur'].forEach(id=>document.getElementById(id).value='');
   renderWorkoutGrid(); renderWorkoutHistory(); computeStreak(); updateStreak(); renderDash();
-  showToast(`🔥 ${logged} session${logged>1?'s':''} logged!`);
+  showToast('🔥 '+logged+' session'+(logged>1?'s':'')+' logged!');
 }
  
 function estimateCalsBurned(key, dur, variation='') {
@@ -1590,6 +1603,11 @@ function renderFavs(filter=''){
 }
 function filterFavs(val){ renderFavs(val); }
 function quickAddFav(i){ addToBasket(state.favFoods[i]); }
+ 
+function setWorkoutDateDefault(){
+  const d=document.getElementById('workoutDate');
+  if(d && !d.value) d.value=new Date().toISOString().split('T')[0];
+}
  
 function setFoodDateDefault(){
   const d=document.getElementById('foodDate');
@@ -1944,6 +1962,7 @@ function showPage(id,btn){
   if(id==='dash') renderDash();
   if(id==='body'){renderBodyStats();renderBodyCharts();}
   if(id==='food'){updateMacros();renderFavs();setFoodDateDefault();}
+  if(id==='workout'){setWorkoutDateDefault();}
 }
 function showToast(msg){
   const t=document.getElementById('toast');
@@ -2072,6 +2091,7 @@ function init(){
   renderBodyStats(); renderBodyCharts();
   initWater(); computeStreak(); updateStreak();
   setFoodDateDefault();
+  setWorkoutDateDefault();
   renderDash();
   if(!state.goal) setTimeout(()=>showToast('👆 Set your goal to get started!'),1000);
   // Pull latest data from Supabase and refresh UI if anything changed
